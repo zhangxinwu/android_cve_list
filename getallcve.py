@@ -60,10 +60,17 @@ for year in range(2019, 2023):
                     if len(name) == 0:
                         break
                     mp[name[i]] = t.text.replace('\n', ' ')
-                    if len(t.find_elements(By.TAG_NAME, 'a')) > 0:
-                        url = t.find_element(By.TAG_NAME, 'a').get_attribute('href')
-                        if not url.endswith('#asterisk') or True:
-                            mp['修复连接'] = url
+                    for ue in t.find_elements(By.TAG_NAME, 'a'):
+                        url = ue.get_attribute('href')
+                        if not url.endswith('#asterisk'):
+                            if '修复链接' in mp:
+                                mp['修复链接'] = mp['修复链接'] + '\n' + url
+                            else:
+                                mp['修复链接'] = url
+                    # if len(t.find_elements(By.TAG_NAME, 'a')) > 0:
+                    #     url = t.find_element(By.TAG_NAME, 'a').get_attribute('href')
+                    #     if not url.endswith('#asterisk') or True:
+                    #         mp['修复连接'] = url
                 if len(mp) > 0:
                     mp['公告日期'] = '{}-{}'.format(year, str(month).zfill(2))
                     data.append(mp)

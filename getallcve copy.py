@@ -10,9 +10,17 @@ urls = []
 
 # 访问页面
 def target_function(u, year, month, q, qb):
+    # 设置Edge浏览器驱动程序
+    edge_options = webdriver.EdgeOptions()
+    edge_options.add_argument('--headless')
+    edge_options.add_argument('--disable-gpu')
+    # edge_options.add_argument('--window-size=80,80')
+    edge_options.add_argument('--incognito')
+    edge_options.use_chromium = False
+    edge_options.add_argument('--proxy-server=http://127.0.0.1:7890')
+    browser = webdriver.Edge(executable_path='msedgedriver.exe', options=edge_options)
     print(u)
     all_table = {}
-    browser = qb.get()
     browser.get(u)
     body = browser.find_element(By.CSS_SELECTOR, '#gc-wrapper > main > devsite-content > article > div.devsite-article-body.clearfix')
     els = body.find_elements(By.XPATH, '*')
@@ -65,16 +73,19 @@ def target_function(u, year, month, q, qb):
                             mp['修复链接'] = data[-1]['修复链接']
                     else:
                         mp[name[ii]] = t.text.replace('\n', ' ')
-                    if len(t.find_elements(By.TAG_NAME, 'a')) > 0:
-                        url = t.find_element(By.TAG_NAME, 'a').get_attribute('href')
+                    for ue in t.find_elements(By.TAG_NAME, 'a'):
+                        url = ue.get_attribute('href')
                         if not url.endswith('#asterisk'):
-                            mp['修复链接'] = url
+                            if '修复链接' in mp:
+                                mp['修复链接'] = mp['修复链接'] + '\n' + url
+                            else:
+                                mp['修复链接'] = url
                 if len(mp) > 0:
                     mp['公告日期'] = '{}-{}'.format(year, str(month).zfill(2))
                     data.append(mp)
         all_table[table_name].extend(data)
     q.put(all_table)
-    qb.put(browser)
+    browser.quit()
 
 # 创建线程池
 max_thread_num = 15
@@ -84,22 +95,24 @@ qb = queue.Queue()
 
 # 设置Edge浏览器驱动程序
 edge_options = webdriver.EdgeOptions()
-edge_options.add_argument('--headless')
-edge_options.add_argument('--disable-gpu')
-edge_options.add_argument('--window-size=80,80')
-edge_options.add_argument('--incognito')
-edge_options.use_chromium = False
-edge_options.add_argument('--proxy-server=socks5://127.0.0.1:7890')
+# edge_options.add_argument('--headless')
+# edge_options.add_argument('--disable-gpu')
+# edge_options.add_argument('--window-size=80,80')
+# edge_options.add_argument('--incognito')
+# edge_options.use_chromium = False
+edge_options.add_argument('--proxy-server=http://127.0.0.1:7890')
 def run(q):
     q.put(webdriver.Edge(executable_path='msedgedriver.exe', options=edge_options))
-for _ in range(max_thread_num):
-    pool.submit(run, qb)
+# for _ in range(max_thread_num):
+#     pool.submit(run, qb)
 
 for year in range(2019, 2024):
     for month in range(1, 13):
         if year == 2019 and month < 2:
             continue
-        if year == 2023 and month > 3:
+        if year == 2023 and month > 2:
+            continue
+        if not (year == 2020 and month == 9):
             continue
         u = 'https://source.android.com/docs/security/bulletin/{}-{}-01?hl=zh-cn'.format(year, str(month).zfill(2))
         urls.append(u)
@@ -108,7 +121,6 @@ for year in range(2019, 2024):
 pool.shutdown(wait=True)
 
 all_tables = {}
-
 while not result_queue.empty():
     r = result_queue.get()
     for k in r:
@@ -120,7 +132,7 @@ while not result_queue.empty():
 
 # 保存数据
 outTables = {}
-writer = pd.ExcelWriter("output_multi.xlsx", engine='xlsxwriter')
+writer = pd.ExcelWriter("output_multi.xlsx", engine='openpyxl')
 for k in all_tables:
     pd.DataFrame(all_tables[k]).to_excel(writer, sheet_name=k, index=False)
 writer.save()  # 保存数据
